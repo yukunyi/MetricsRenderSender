@@ -11,6 +11,7 @@ WINDOWS_ZIP_PATH="$DIST_DIR/windows/$WINDOWS_PACKAGE.zip"
 FRONTEND_DIR="frontend"
 EMBED_DIST_DIR="src/metrics_render_sender/webassets/webdist"
 BUILD_TARGETS="${BUILD_TARGETS:-linux windows}"
+SKIP_FRONTEND_BUILD="${SKIP_FRONTEND_BUILD:-0}"
 WINDOWS_CC="${WINDOWS_CC:-x86_64-w64-mingw32-gcc}"
 WINDOWS_CXX="${WINDOWS_CXX:-x86_64-w64-mingw32-g++}"
 WINDOWS_PKG_CONFIG="${WINDOWS_PKG_CONFIG:-x86_64-w64-mingw32-pkg-config}"
@@ -121,30 +122,38 @@ fi
 
 echo "Go version: $(go version)"
 
-if ! command -v npm &> /dev/null; then
-    echo "Error: npm not found, cannot build web frontend"
-    exit 1
-fi
+if [ "$SKIP_FRONTEND_BUILD" != "1" ]; then
+    if ! command -v npm &> /dev/null; then
+        echo "Error: npm not found, cannot build web frontend"
+        exit 1
+    fi
 
-echo "Building Vite frontend..."
-pushd "$FRONTEND_DIR" > /dev/null
-if [ -f package-lock.json ]; then
-    npm ci --include=dev
+    echo "Building Vite frontend..."
+    pushd "$FRONTEND_DIR" > /dev/null
+    if [ -f package-lock.json ]; then
+        npm ci --include=dev
+    else
+        npm install --include=dev
+    fi
+    npm run build
+    popd > /dev/null
+
+    if [ ! -f "$FRONTEND_DIR/dist/index.html" ]; then
+        echo "Error: frontend build output missing: $FRONTEND_DIR/dist/index.html"
+        exit 1
+    fi
+
+    echo "Syncing frontend dist to $EMBED_DIST_DIR ..."
+    mkdir -p "$EMBED_DIST_DIR"
+    rm -rf "$EMBED_DIST_DIR"/*
+    cp -r "$FRONTEND_DIR"/dist/* "$EMBED_DIST_DIR"/
 else
-    npm install --include=dev
+    if [ ! -f "$EMBED_DIST_DIR/index.html" ]; then
+        echo "Error: embedded frontend output missing: $EMBED_DIST_DIR/index.html"
+        exit 1
+    fi
+    echo "Using prebuilt frontend assets in $EMBED_DIST_DIR ..."
 fi
-npm run build
-popd > /dev/null
-
-if [ ! -f "$FRONTEND_DIR/dist/index.html" ]; then
-    echo "Error: frontend build output missing: $FRONTEND_DIR/dist/index.html"
-    exit 1
-fi
-
-echo "Syncing frontend dist to $EMBED_DIST_DIR ..."
-mkdir -p "$EMBED_DIST_DIR"
-rm -rf "$EMBED_DIST_DIR"/*
-cp -r "$FRONTEND_DIR"/dist/* "$EMBED_DIST_DIR"/
 
 mkdir -p dist
 

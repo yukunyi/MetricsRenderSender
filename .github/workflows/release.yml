@@ -86,6 +86,24 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend assets
+        shell: bash
+        run: |
+          cd frontend
+          npm ci --include=dev
+          npm run build
+          cd ..
+          rm -rf src/metrics_render_sender/webassets/webdist
+          mkdir -p src/metrics_render_sender/webassets/webdist
+          cp -r frontend/dist/* src/metrics_render_sender/webassets/webdist/
+
       - name: Set up MSYS2 build environment
         uses: msys2/setup-msys2@v2
         with:
@@ -94,7 +112,6 @@ jobs:
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-go
-            mingw-w64-x86_64-nodejs
             mingw-w64-x86_64-libusb
             mingw-w64-x86_64-pkgconf
             zip
@@ -121,6 +138,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           BUILD_TARGETS: windows
+          SKIP_FRONTEND_BUILD: "1"
           WINDOWS_CC: gcc
           WINDOWS_CXX: g++
           WINDOWS_PKG_CONFIG: pkg-config
