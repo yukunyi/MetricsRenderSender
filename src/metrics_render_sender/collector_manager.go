@@ -1551,6 +1551,8 @@ func getCollectorManagerConfig() *CollectorManagerConfig {
 		"go_native.disk.total_read",
 		"go_native.disk.total_write",
 		"go_native.disk.max_busy",
+		"go_native.disk.max_latency",
+		"go_native.disk.max_temp",
 		"go_native.memory.usage",
 		"go_native.memory.used",
 		"go_native.memory.total",

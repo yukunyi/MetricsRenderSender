@@ -52,6 +52,11 @@ type diskMetricsSnapshot struct {
 	OK             bool
 }
 
+type diskTemperatureSnapshot struct {
+	Temperature float64
+	OK          bool
+}
+
 var (
 	networkRateMu    sync.Mutex
 	networkRateCache = make(map[string]netRateSnapshot)
@@ -271,6 +276,10 @@ func getDiskMetricsSnapshots(deviceNames []string) map[string]diskMetricsSnapsho
 		}
 	}
 	return result
+}
+
+func getDiskTemperatureSnapshots(deviceNames []string) map[string]diskTemperatureSnapshot {
+	return readPlatformDiskTemperatures(deviceNames)
 }
 
 func getDiskCounterSamples(deviceNames []string) map[string]diskRateSnapshot {

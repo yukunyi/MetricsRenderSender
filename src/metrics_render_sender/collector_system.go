@@ -36,6 +36,8 @@ func (c *GoNativeSystemCollector) ensureStaticItems() {
 	c.setItem("go_native.disk.total_read", NewCollectItem("go_native.disk.total_read", "Disk total read speed", "MiB/s", 0, 0, 2))
 	c.setItem("go_native.disk.total_write", NewCollectItem("go_native.disk.total_write", "Disk total write speed", "MiB/s", 0, 0, 2))
 	c.setItem("go_native.disk.max_busy", NewCollectItem("go_native.disk.max_busy", "Disk max busy", "%", 0, 100, 0))
+	c.setItem("go_native.disk.max_latency", NewCollectItem("go_native.disk.max_latency", "Disk max latency", "ms", 0, 0, 2))
+	c.setItem("go_native.disk.max_temp", NewCollectItem("go_native.disk.max_temp", "Disk max temperature", "°C", 0, DiskTempMax, 1))
 	ensureOutputMetricItems(c, outputTypeMemImg, "Output memimg")
 	ensureOutputMetricItems(c, outputTypeAX206USB, "AX206 refresh")
 	ensureOutputMetricItems(c, outputTypeHTTPPush, "HTTP push")
@@ -125,10 +127,12 @@ func updateAggregateMonitorItems(c *GoNativeSystemCollector, items map[string]*C
 		return
 	}
 	setFloatMonitorItem(c.getItem("go_native.cpu.min_freq"), aggregateCPUMinFreq(items))
-	totalRead, totalWrite, maxBusy := aggregateDiskRuntimeMetrics(items)
-	setFloatMonitorItem(c.getItem("go_native.disk.total_read"), totalRead)
-	setFloatMonitorItem(c.getItem("go_native.disk.total_write"), totalWrite)
-	setFloatMonitorItem(c.getItem("go_native.disk.max_busy"), maxBusy)
+	diskRuntime := aggregateDiskRuntimeMetricSet(items)
+	setFloatMonitorItem(c.getItem("go_native.disk.total_read"), diskRuntime.totalRead)
+	setFloatMonitorItem(c.getItem("go_native.disk.total_write"), diskRuntime.totalWrite)
+	setFloatMonitorItem(c.getItem("go_native.disk.max_busy"), diskRuntime.maxBusy)
+	setFloatMonitorItem(c.getItem("go_native.disk.max_latency"), diskRuntime.maxLatency)
+	setFloatMonitorItem(c.getItem("go_native.disk.max_temp"), diskRuntime.maxTemp)
 }
 
 type floatAggregateResult struct {
@@ -176,13 +180,30 @@ func aggregateCPUMinFreq(items map[string]*CollectItem) floatAggregateResult {
 	return floatAggregateResult{value: value, ok: valueOK}
 }
 
+type diskRuntimeAggregateResult struct {
+	totalRead  floatAggregateResult
+	totalWrite floatAggregateResult
+	maxBusy    floatAggregateResult
+	maxLatency floatAggregateResult
+	maxTemp    floatAggregateResult
+}
+
 func aggregateDiskRuntimeMetrics(items map[string]*CollectItem) (floatAggregateResult, floatAggregateResult, floatAggregateResult) {
+	result := aggregateDiskRuntimeMetricSet(items)
+	return result.totalRead, result.totalWrite, result.maxBusy
+}
+
+func aggregateDiskRuntimeMetricSet(items map[string]*CollectItem) diskRuntimeAggregateResult {
 	totalRead := 0.0
 	totalWrite := 0.0
 	maxBusy := 0.0
+	maxLatency := 0.0
+	maxTemp := 0.0
 	readOK := false
 	writeOK := false
 	busyOK := false
+	latencyOK := false
+	tempOK := false
 	for name, item := range items {
 		if !strings.HasPrefix(strings.TrimSpace(name), "go_native.disk.") {
 			continue
@@ -211,11 +232,33 @@ func aggregateDiskRuntimeMetrics(items map[string]*CollectItem) (floatAggregateR
 				maxBusy = value
 				busyOK = true
 			}
+		case strings.HasSuffix(name, ".read_latency") || strings.HasSuffix(name, ".write_latency"):
+			value, ok := collectItemFloatValue(item)
+			if !ok {
+				continue
+			}
+			if !latencyOK || value > maxLatency {
+				maxLatency = value
+				latencyOK = true
+			}
+		case strings.HasSuffix(name, ".temp"):
+			value, ok := collectItemFloatValue(item)
+			if !ok {
+				continue
+			}
+			if !tempOK || value > maxTemp {
+				maxTemp = value
+				tempOK = true
+			}
 		}
 	}
-	return floatAggregateResult{value: totalRead, ok: readOK},
-		floatAggregateResult{value: totalWrite, ok: writeOK},
-		floatAggregateResult{value: maxBusy, ok: busyOK}
+	return diskRuntimeAggregateResult{
+		totalRead:  floatAggregateResult{value: totalRead, ok: readOK},
+		totalWrite: floatAggregateResult{value: totalWrite, ok: writeOK},
+		maxBusy:    floatAggregateResult{value: maxBusy, ok: busyOK},
+		maxLatency: floatAggregateResult{value: maxLatency, ok: latencyOK},
+		maxTemp:    floatAggregateResult{value: maxTemp, ok: tempOK},
+	}
 }
 
 func collectItemFloatValue(item *CollectItem) (float64, bool) {

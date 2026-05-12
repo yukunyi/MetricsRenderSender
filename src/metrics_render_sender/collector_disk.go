@@ -27,6 +27,7 @@ type goNativeDiskSlot struct {
 	usedItem         *CollectItem
 	availableItem    *CollectItem
 	usageItem        *CollectItem
+	tempItem         *CollectItem
 	busyItem         *CollectItem
 	readItem         *CollectItem
 	writeItem        *CollectItem
@@ -126,7 +127,7 @@ func (c *GoNativeDiskCollector) requiredMaxIndex() int {
 			continue
 		}
 		switch parts[1] {
-		case "name", "size", "used", "available", "usage", "busy", "read", "write", "read_iops", "write_iops", "read_latency", "write_latency":
+		case "name", "size", "used", "available", "usage", "temp", "busy", "read", "write", "read_iops", "write_iops", "read_latency", "write_latency":
 			if idx > maxIndex {
 				maxIndex = idx
 			}
@@ -155,6 +156,7 @@ func (c *GoNativeDiskCollector) ensureSlotsForCount(detected int) {
 			usedItem:         NewCollectItem(fmt.Sprintf("go_native.disk.%d.used", index), fmt.Sprintf("Disk %d used", index), "GB", 0, 0, 0),
 			availableItem:    NewCollectItem(fmt.Sprintf("go_native.disk.%d.available", index), fmt.Sprintf("Disk %d available", index), "GB", 0, 0, 0),
 			usageItem:        NewCollectItem(fmt.Sprintf("go_native.disk.%d.usage", index), fmt.Sprintf("Disk %d usage", index), "%", 0, 100, 0),
+			tempItem:         NewCollectItem(fmt.Sprintf("go_native.disk.%d.temp", index), fmt.Sprintf("Disk %d temperature", index), "°C", 0, DiskTempMax, 1),
 			busyItem:         NewCollectItem(fmt.Sprintf("go_native.disk.%d.busy", index), fmt.Sprintf("Disk %d busy", index), "%", 0, 100, 0),
 			readItem:         NewCollectItem(fmt.Sprintf("go_native.disk.%d.read", index), fmt.Sprintf("Disk %d read speed", index), "MiB/s", 0, 0, 2),
 			writeItem:        NewCollectItem(fmt.Sprintf("go_native.disk.%d.write", index), fmt.Sprintf("Disk %d write speed", index), "MiB/s", 0, 0, 2),
@@ -169,6 +171,7 @@ func (c *GoNativeDiskCollector) ensureSlotsForCount(detected int) {
 		c.setItem(slot.usedItem.GetName(), slot.usedItem)
 		c.setItem(slot.availableItem.GetName(), slot.availableItem)
 		c.setItem(slot.usageItem.GetName(), slot.usageItem)
+		c.setItem(slot.tempItem.GetName(), slot.tempItem)
 		c.setItem(slot.busyItem.GetName(), slot.busyItem)
 		c.setItem(slot.readItem.GetName(), slot.readItem)
 		c.setItem(slot.writeItem.GetName(), slot.writeItem)
@@ -242,6 +245,18 @@ func updateDiskRateItems(slot *goNativeDiskSlot, disk *DiskInfo) {
 	slot.readLatencyItem.SetAvailable(false)
 	slot.writeLatencyItem.SetAvailable(false)
 	slot.busyItem.SetAvailable(false)
+}
+
+func updateDiskTemperatureItem(slot *goNativeDiskSlot, disk *DiskInfo) {
+	if slot == nil || slot.tempItem == nil {
+		return
+	}
+	if disk == nil || !disk.TempAvailable {
+		slot.tempItem.SetAvailable(false)
+		return
+	}
+	slot.tempItem.SetValue(disk.Temperature)
+	slot.tempItem.SetAvailable(true)
 }
 
 func setDiskDynamicMetrics(slot *goNativeDiskSlot, metrics *diskComputedMetrics) {
@@ -319,6 +334,7 @@ func (c *GoNativeDiskCollector) GetAllItems() map[string]*CollectItem {
 		}
 		updateDiskStaticItems(slot, disk)
 		updateDiskRateItems(slot, disk)
+		updateDiskTemperatureItem(slot, disk)
 	}
 	return c.ItemsSnapshot()
 }
@@ -402,6 +418,9 @@ func (c *GoNativeDiskCollector) UpdateItems() error {
 			} else {
 				updateDiskRateItems(slot, nil)
 			}
+		}
+		if slot.tempItem != nil && slot.tempItem.IsEnabled() {
+			updateDiskTemperatureItem(slot, disk)
 		}
 	}
 	return nil

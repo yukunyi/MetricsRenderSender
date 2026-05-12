@@ -34,6 +34,8 @@ type DiskInfo struct {
 	Used             int64   // Used size in GB
 	Available        int64   // Available size in GB
 	Usage            float64 // Usage percentage
+	Temperature      float64 // Disk temperature in Celsius
+	TempAvailable    bool
 	ReadSpeed        float64 // MiB/s
 	WriteSpeed       float64 // MiB/s
 	ReadIOPS         float64

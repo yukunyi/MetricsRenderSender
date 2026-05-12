@@ -38,18 +38,19 @@ type ConfigStore struct {
 }
 
 type WebMetaResponse struct {
-	ConfigPath           string         `json:"config_path"`
-	Platform             string         `json:"platform,omitempty"`
-	Monitors             []string       `json:"monitors"`
-	Collectors           []string       `json:"collectors,omitempty"`
-	ItemTypes            []string       `json:"item_types"`
-	StyleKeys            []StyleKeyMeta `json:"style_keys,omitempty"`
-	OutputTypes          []string       `json:"output_types"`
-	FontFamilies         []string       `json:"font_families"`
-	NetworkInterfaces    []string       `json:"network_interfaces"`
-	CustomMonitorTypes   []string       `json:"custom_monitor_types"`
-	CustomAggregateTypes []string       `json:"custom_aggregate_types"`
-	ActiveProfile        string         `json:"active_profile,omitempty"`
+	ConfigPath           string            `json:"config_path"`
+	Platform             string            `json:"platform,omitempty"`
+	Monitors             []string          `json:"monitors"`
+	Collectors           []string          `json:"collectors,omitempty"`
+	ItemTypes            []string          `json:"item_types"`
+	StyleKeys            []StyleKeyMeta    `json:"style_keys,omitempty"`
+	OutputTypes          []string          `json:"output_types"`
+	FontFamilies         []string          `json:"font_families"`
+	NetworkInterfaces    []string          `json:"network_interfaces"`
+	CustomMonitorTypes   []string          `json:"custom_monitor_types"`
+	CustomAggregateTypes []string          `json:"custom_aggregate_types"`
+	MonitorAliasLabels   map[string]string `json:"monitor_alias_labels,omitempty"`
+	ActiveProfile        string            `json:"active_profile,omitempty"`
 }
 
 type WebConfigResponse struct {
@@ -727,6 +728,7 @@ func buildWebMetaResponse(store *ConfigStore) WebMetaResponse {
 		NetworkInterfaces:    listNetworkInterfaces(),
 		CustomMonitorTypes:   []string{"file", "mixed", "coolercontrol", "librehardwaremonitor"},
 		CustomAggregateTypes: []string{"max", "min", "avg", "sum"},
+		MonitorAliasLabels:   monitorAliasLabels(),
 		ActiveProfile:        store.profiles.ActiveName(),
 	}
 }

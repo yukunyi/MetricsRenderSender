@@ -899,6 +899,8 @@ func applyDynamicWebSnapshotLabels(values map[string]WebMonitorSnapshotItem, ent
 				item.Label = "Disk " + diskName + " available"
 			case "usage":
 				item.Label = "Disk " + diskName + " usage"
+			case "temp":
+				item.Label = "Disk " + diskName + " temperature"
 			case "busy":
 				item.Label = "Disk " + diskName + " busy"
 			case "read":
@@ -936,6 +938,8 @@ var explicitWebSnapshotLabels = map[string]string{
 	"go_native.disk.total_read":                "Disk total read speed",
 	"go_native.disk.total_write":               "Disk total write speed",
 	"go_native.disk.max_busy":                  "Disk max busy",
+	"go_native.disk.max_latency":               "Disk max latency",
+	"go_native.disk.max_temp":                  "Disk max temperature",
 	"go_native.memory.usage":                   "Memory usage",
 	"go_native.memory.used":                    "Memory used",
 	"go_native.memory.total":                   "Memory total",

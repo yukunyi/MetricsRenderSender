@@ -287,9 +287,16 @@ func populateDiskDynamicMetrics(disks []*DiskInfo) {
 		names = append(names, disk.Name)
 	}
 	snapshots := getDiskMetricsSnapshots(names)
+	tempSnapshots := getDiskTemperatureSnapshots(names)
 	for _, disk := range disks {
 		if disk == nil {
 			continue
+		}
+		if tempSnapshot, ok := tempSnapshots[disk.Name]; ok && tempSnapshot.OK {
+			disk.Temperature = tempSnapshot.Temperature
+			disk.TempAvailable = true
+		} else {
+			disk.TempAvailable = false
 		}
 		snapshot, ok := snapshots[disk.Name]
 		if !ok || !snapshot.OK {

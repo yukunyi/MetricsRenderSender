@@ -1,6 +1,7 @@
 import { normalizeStyleKeys } from "./style_keys";
 import { isRangeType, normalizeItemTypes } from "./item_types";
 import { normalizeOutputs } from "./output_configs";
+import { normalizeMonitorName } from "./monitor_aliases";
 
 function defaultCreateItemId() {
   return `itm_${Date.now()}`;
@@ -110,7 +111,7 @@ export function normalizeThresholdGroups(raw) {
       const name = String(entry.name || "").trim();
       if (!name || used.has(name)) return null;
       const monitors = Array.isArray(entry.monitors)
-        ? [...new Set(entry.monitors.map((item) => String(item || "").trim()).filter(Boolean))]
+        ? [...new Set(entry.monitors.map((item) => normalizeMonitorName(item)).filter(Boolean))]
         : [];
       const ranges = normalizeThresholdRanges(entry.ranges);
       if (ranges.length === 0) return null;
@@ -224,12 +225,21 @@ export function normalizeConfigModel(
     }
     itemIdSet.add(next.id);
     next.custom_style = config.allow_custom_style ? next.custom_style === true : false;
+    next.monitor = normalizeMonitorName(next.monitor);
     next.style = normalizeStyleMap(next.style, styleKeySet);
     next.render_attrs_map = normalizeItemRenderAttrs(next.type, next.render_attrs_map, styleKeySet);
     normalizeItemRangeFields(next);
     return next;
   });
   config.custom_monitors = Array.isArray(config.custom_monitors) ? config.custom_monitors : [];
+  config.custom_monitors = config.custom_monitors.map((item) => {
+    const next = { ...(item || {}) };
+    next.source = normalizeMonitorName(next.source);
+    next.sources = Array.isArray(next.sources)
+      ? next.sources.map((source) => normalizeMonitorName(source)).filter(Boolean)
+      : [];
+    return next;
+  });
   config.collector_config = config.collector_config || {};
   Object.keys(defaultCollectorEnabled).forEach((name) =>
     ensureCollectorEntry(config, name, defaultCollectorEnabled),

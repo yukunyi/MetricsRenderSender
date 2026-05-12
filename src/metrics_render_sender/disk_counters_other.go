@@ -25,3 +25,7 @@ func readPlatformDiskCounters() (map[string]diskCounterSample, error) {
 	}
 	return result, nil
 }
+
+func readPlatformDiskTemperatures(deviceNames []string) map[string]diskTemperatureSnapshot {
+	return readLinuxDiskTemperatures(deviceNames)
+}

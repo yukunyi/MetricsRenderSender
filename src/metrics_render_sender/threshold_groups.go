@@ -39,7 +39,7 @@ func normalizeThresholdGroupMonitors(monitors []string) []string {
 	out := make([]string, 0, len(monitors))
 	seen := make(map[string]struct{}, len(monitors))
 	for _, raw := range monitors {
-		name := normalizeMonitorNameInput(raw)
+		name := normalizeMonitorAlias(raw)
 		if name == "" {
 			continue
 		}
