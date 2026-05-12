@@ -259,6 +259,37 @@ func updateDiskTemperatureItem(slot *goNativeDiskSlot, disk *DiskInfo) {
 	slot.tempItem.SetAvailable(true)
 }
 
+func updateDiskTemperatureSnapshotItem(slot *goNativeDiskSlot, disk *DiskInfo, snapshots map[string]diskTemperatureSnapshot) {
+	if slot == nil || slot.tempItem == nil {
+		return
+	}
+	if disk == nil {
+		slot.tempItem.SetAvailable(false)
+		return
+	}
+	name := strings.TrimSpace(disk.Name)
+	if name == "" {
+		slot.tempItem.SetAvailable(false)
+		return
+	}
+	snapshot, ok := snapshots[name]
+	if !ok || !snapshot.OK {
+		slot.tempItem.SetAvailable(false)
+		return
+	}
+	slot.tempItem.SetValue(snapshot.Temperature)
+	slot.tempItem.SetAvailable(true)
+}
+
+func diskTemperatureItemsEnabled(slots map[int]*goNativeDiskSlot) bool {
+	for _, slot := range slots {
+		if slot != nil && slot.tempItem != nil && slot.tempItem.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
 func setDiskDynamicMetrics(slot *goNativeDiskSlot, metrics *diskComputedMetrics) {
 	if slot == nil || metrics == nil {
 		updateDiskRateItems(slot, nil)
@@ -365,6 +396,10 @@ func (c *GoNativeDiskCollector) UpdateItems() error {
 		names = append(names, disk.Name)
 	}
 	samples := getDiskCounterSamples(names)
+	temperatureSnapshots := map[string]diskTemperatureSnapshot{}
+	if diskTemperatureItemsEnabled(c.slots) {
+		temperatureSnapshots = getDiskTemperatureSnapshots(names)
+	}
 	for index, slot := range c.slots {
 		if slot == nil {
 			continue
@@ -383,44 +418,39 @@ func (c *GoNativeDiskCollector) UpdateItems() error {
 			slot.busyItem.IsEnabled() {
 			if disk == nil {
 				updateDiskRateItems(slot, nil)
-				continue
-			}
-			stateName := strings.TrimSpace(disk.Name)
-			state := c.diskState(stateName)
-			if state == nil {
-				updateDiskRateItems(slot, nil)
-				continue
-			}
-			sample, ok := samples[stateName]
-			if ok {
-				if state.hasLast {
-					if metrics, metricsOK := computeDiskMetrics(sample, state.last); metricsOK {
-						state.lastGood = smoothDiskMetrics(state.lastGood, metrics)
-						state.validUntil = time.Now().Add(15 * time.Second)
-						setDiskDynamicMetrics(slot, state.lastGood)
-					} else if state.lastGood != nil && time.Now().Before(state.validUntil) {
-						setDiskDynamicMetrics(slot, state.lastGood)
-					} else {
-						updateDiskRateItems(slot, nil)
-					}
-				} else {
-					zero := &diskComputedMetrics{}
-					state.lastGood = zero
-					state.validUntil = time.Now().Add(15 * time.Second)
-					setDiskDynamicMetrics(slot, zero)
-				}
-				state.last = sample
-				state.hasLast = true
-				continue
-			}
-			if state.lastGood != nil && time.Now().Before(state.validUntil) {
-				setDiskDynamicMetrics(slot, state.lastGood)
 			} else {
-				updateDiskRateItems(slot, nil)
+				stateName := strings.TrimSpace(disk.Name)
+				state := c.diskState(stateName)
+				if state == nil {
+					updateDiskRateItems(slot, nil)
+				} else if sample, ok := samples[stateName]; ok {
+					if state.hasLast {
+						if metrics, metricsOK := computeDiskMetrics(sample, state.last); metricsOK {
+							state.lastGood = smoothDiskMetrics(state.lastGood, metrics)
+							state.validUntil = time.Now().Add(15 * time.Second)
+							setDiskDynamicMetrics(slot, state.lastGood)
+						} else if state.lastGood != nil && time.Now().Before(state.validUntil) {
+							setDiskDynamicMetrics(slot, state.lastGood)
+						} else {
+							updateDiskRateItems(slot, nil)
+						}
+					} else {
+						zero := &diskComputedMetrics{}
+						state.lastGood = zero
+						state.validUntil = time.Now().Add(15 * time.Second)
+						setDiskDynamicMetrics(slot, zero)
+					}
+					state.last = sample
+					state.hasLast = true
+				} else if state.lastGood != nil && time.Now().Before(state.validUntil) {
+					setDiskDynamicMetrics(slot, state.lastGood)
+				} else {
+					updateDiskRateItems(slot, nil)
+				}
 			}
 		}
 		if slot.tempItem != nil && slot.tempItem.IsEnabled() {
-			updateDiskTemperatureItem(slot, disk)
+			updateDiskTemperatureSnapshotItem(slot, disk, temperatureSnapshots)
 		}
 	}
 	return nil

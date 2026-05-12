@@ -795,6 +795,9 @@ func collectMonitorNames(config *MonitorConfig, runtimeState *WebAPI) []string {
 
 	monitors := make([]string, 0, len(monitorSet))
 	for monitor := range monitorSet {
+		if !isMonitorSupportedOnCurrentPlatform(monitor) {
+			continue
+		}
 		monitors = append(monitors, monitor)
 	}
 	sort.Strings(monitors)

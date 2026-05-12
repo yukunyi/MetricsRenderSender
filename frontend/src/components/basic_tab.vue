@@ -36,6 +36,9 @@ function collectorSupportedOnPlatform(name) {
   if (collector === "rtss") return platform.value === "windows";
   if (collector === "coolercontrol") return platform.value === "linux";
   if (collector === "librehardwaremonitor") return platform.value === "windows";
+  if (collector === "go_native.btrfs_root") {
+    return (props.meta.collectors || []).includes("go_native.btrfs_root");
+  }
   return true;
 }
 

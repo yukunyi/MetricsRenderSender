@@ -68,6 +68,7 @@ const DEFAULT_COLLECTOR_ENABLED = {
   "go_native.system": true,
   "go_native.disk": true,
   "go_native.network": true,
+  "go_native.btrfs_root": true,
   "custom.all": true,
   coolercontrol: false,
   librehardwaremonitor: false,
@@ -306,11 +307,15 @@ function mergeConfigMonitors(config) {
 }
 
 function normalizeConfig(cfg, styleKeysRaw = [], itemTypesRaw = []) {
+  const collectorEnabled = { ...DEFAULT_COLLECTOR_ENABLED };
+  if (!state.meta?.collectors?.includes("go_native.btrfs_root")) {
+    delete collectorEnabled["go_native.btrfs_root"];
+  }
   return normalizeConfigModel(cfg, {
     styleKeysRaw,
     itemTypesRaw,
     createItemId,
-    defaultCollectorEnabled: DEFAULT_COLLECTOR_ENABLED,
+    defaultCollectorEnabled: collectorEnabled,
   });
 }
 

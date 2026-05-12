@@ -746,6 +746,9 @@ func signatureOfNames(names []string) string {
 		if trimmed == "" {
 			continue
 		}
+		if !isMonitorSupportedOnCurrentPlatform(trimmed) {
+			continue
+		}
 		set[trimmed] = struct{}{}
 	}
 	uniq := make([]string, 0, len(set))
@@ -1587,6 +1590,21 @@ func getCollectorManagerConfig() *CollectorManagerConfig {
 	if runtime.GOOS != "windows" {
 		names = append(names, "go_native.cpu.temp")
 	}
+	if isBtrfsRootAvailable() {
+		names = append(names,
+			"go_native.btrfs_root.device_size",
+			"go_native.btrfs_root.allocated",
+			"go_native.btrfs_root.allocated_used",
+			"go_native.btrfs_root.unallocated",
+			"go_native.btrfs_root.alloc_usage",
+			"go_native.btrfs_root.data_usage",
+			"go_native.btrfs_root.metadata_usage",
+			"go_native.btrfs_root.system_usage",
+			"go_native.btrfs_root.pinned",
+			"go_native.btrfs_root.reclaim",
+			"go_native.btrfs_root.discardable",
+		)
+	}
 	items := make([]CollectItemConfig, 0, len(names))
 	for _, name := range names {
 		items = append(items, CollectItemConfig{Name: name, Required: true})
@@ -1606,6 +1624,9 @@ func initializeCollectors(manager *CollectorManager, cfg *MonitorConfig) {
 	registerCollectorWithConfig(manager, cfg, NewGoNativeSystemCollector(), true)
 	registerCollectorWithConfig(manager, cfg, NewGoNativeDiskCollector(manager.requiredItemsSnapshot), true)
 	registerCollectorWithConfig(manager, cfg, NewGoNativeNetworkCollector(manager.requiredItemsSnapshot), true)
+	if btrfsRoot := NewGoNativeBtrfsRootCollector(); btrfsRoot != nil {
+		registerCollectorWithConfig(manager, cfg, btrfsRoot, true)
+	}
 	if cc := NewCoolerControlCollector(cfg); cc != nil {
 		registerCollectorWithConfig(manager, cfg, cc, true)
 	}
