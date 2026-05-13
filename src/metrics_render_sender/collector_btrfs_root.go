@@ -3,19 +3,20 @@ package main
 import "fmt"
 
 type btrfsRootSnapshot struct {
-	DeviceSizeGB    float64
-	AllocatedGB     float64
-	AllocatedUsedGB float64
-	UnallocatedGB   float64
-	AllocationUsage float64
-	DataUsage       float64
-	MetadataUsage   float64
-	SystemUsage     float64
-	PinnedGB        float64
-	ReclaimGB       float64
-	DiscardableGB   float64
-	DiscardableOK   bool
-	OK              bool
+	DeviceSizeGB       float64
+	AllocatedGB        float64
+	AllocatedUsedGB    float64
+	UnallocatedGB      float64
+	AllocationUsage    float64
+	BalanceReclaimable float64
+	DataUsage          float64
+	MetadataUsage      float64
+	SystemUsage        float64
+	PinnedGB           float64
+	ReclaimGB          float64
+	DiscardableGB      float64
+	DiscardableOK      bool
+	OK                 bool
 }
 
 type GoNativeBtrfsRootCollector struct {
@@ -42,6 +43,7 @@ func (c *GoNativeBtrfsRootCollector) ensureItems() {
 	c.setItem("go_native.btrfs_root.allocated_used", NewCollectItem("go_native.btrfs_root.allocated_used", "Btrfs root allocated used", "GB", 0, 0, 1))
 	c.setItem("go_native.btrfs_root.unallocated", NewCollectItem("go_native.btrfs_root.unallocated", "Btrfs root unallocated", "GB", 0, 0, 1))
 	c.setItem("go_native.btrfs_root.alloc_usage", NewCollectItem("go_native.btrfs_root.alloc_usage", "Btrfs root allocation usage", "%", 0, 100, 1))
+	c.setItem("go_native.btrfs_root.balance_reclaimable", NewCollectItem("go_native.btrfs_root.balance_reclaimable", "Btrfs root balance reclaimable", "%", 0, 100, 1))
 	c.setItem("go_native.btrfs_root.data_usage", NewCollectItem("go_native.btrfs_root.data_usage", "Btrfs root data usage", "%", 0, 100, 1))
 	c.setItem("go_native.btrfs_root.metadata_usage", NewCollectItem("go_native.btrfs_root.metadata_usage", "Btrfs root metadata usage", "%", 0, 100, 1))
 	c.setItem("go_native.btrfs_root.system_usage", NewCollectItem("go_native.btrfs_root.system_usage", "Btrfs root system usage", "%", 0, 100, 1))
@@ -72,6 +74,7 @@ func (c *GoNativeBtrfsRootCollector) UpdateItems() error {
 	c.setValue("go_native.btrfs_root.allocated_used", snapshot.AllocatedUsedGB)
 	c.setValue("go_native.btrfs_root.unallocated", snapshot.UnallocatedGB)
 	c.setValue("go_native.btrfs_root.alloc_usage", snapshot.AllocationUsage)
+	c.setValue("go_native.btrfs_root.balance_reclaimable", snapshot.BalanceReclaimable)
 	c.setValue("go_native.btrfs_root.data_usage", snapshot.DataUsage)
 	c.setValue("go_native.btrfs_root.metadata_usage", snapshot.MetadataUsage)
 	c.setValue("go_native.btrfs_root.system_usage", snapshot.SystemUsage)

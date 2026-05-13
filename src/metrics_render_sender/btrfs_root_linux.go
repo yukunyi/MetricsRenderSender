@@ -195,6 +195,9 @@ func readBtrfsRootSnapshot(source btrfsRootSource) (btrfsRootSnapshot, error) {
 	if allocatedBytes > deviceSizeBytes {
 		return btrfsRootSnapshot{}, fmt.Errorf("btrfs root allocated bytes exceed device size")
 	}
+	if allocatedUsedBytes > allocatedBytes {
+		return btrfsRootSnapshot{}, fmt.Errorf("btrfs root allocated used bytes exceed allocated bytes")
+	}
 
 	discardableBytes, discardableOK, err := readOptionalBtrfsUint(source.discardableFile)
 	if err != nil {
@@ -202,18 +205,19 @@ func readBtrfsRootSnapshot(source btrfsRootSource) (btrfsRootSnapshot, error) {
 	}
 
 	snapshot := btrfsRootSnapshot{
-		DeviceSizeGB:    bytesToGiB(deviceSizeBytes),
-		AllocatedGB:     bytesToGiB(allocatedBytes),
-		AllocatedUsedGB: bytesToGiB(allocatedUsedBytes),
-		UnallocatedGB:   bytesToGiB(deviceSizeBytes - allocatedBytes),
-		AllocationUsage: percentOf(allocatedBytes, deviceSizeBytes),
-		DataUsage:       percentOf(data.bytesUsed, data.totalBytes),
-		MetadataUsage:   percentOf(metadata.bytesUsed, metadata.totalBytes),
-		SystemUsage:     percentOf(system.bytesUsed, system.totalBytes),
-		PinnedGB:        bytesToGiB(data.bytesPinned + metadata.bytesPinned + system.bytesPinned),
-		ReclaimGB:       bytesToGiB(data.reclaimBytes + metadata.reclaimBytes + system.reclaimBytes),
-		DiscardableOK:   discardableOK,
-		OK:              true,
+		DeviceSizeGB:       bytesToGiB(deviceSizeBytes),
+		AllocatedGB:        bytesToGiB(allocatedBytes),
+		AllocatedUsedGB:    bytesToGiB(allocatedUsedBytes),
+		UnallocatedGB:      bytesToGiB(deviceSizeBytes - allocatedBytes),
+		AllocationUsage:    percentOf(allocatedBytes, deviceSizeBytes),
+		BalanceReclaimable: percentOf(allocatedBytes-allocatedUsedBytes, deviceSizeBytes),
+		DataUsage:          percentOf(data.bytesUsed, data.totalBytes),
+		MetadataUsage:      percentOf(metadata.bytesUsed, metadata.totalBytes),
+		SystemUsage:        percentOf(system.bytesUsed, system.totalBytes),
+		PinnedGB:           bytesToGiB(data.bytesPinned + metadata.bytesPinned + system.bytesPinned),
+		ReclaimGB:          bytesToGiB(data.reclaimBytes + metadata.reclaimBytes + system.reclaimBytes),
+		DiscardableOK:      discardableOK,
+		OK:                 true,
 	}
 	if discardableOK {
 		snapshot.DiscardableGB = bytesToGiB(discardableBytes)

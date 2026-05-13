@@ -945,6 +945,7 @@ var explicitWebSnapshotLabels = map[string]string{
 	"go_native.btrfs_root.allocated_used":      "Btrfs root allocated used",
 	"go_native.btrfs_root.unallocated":         "Btrfs root unallocated",
 	"go_native.btrfs_root.alloc_usage":         "Btrfs root allocation usage",
+	"go_native.btrfs_root.balance_reclaimable": "Btrfs root balance reclaimable",
 	"go_native.btrfs_root.data_usage":          "Btrfs root data usage",
 	"go_native.btrfs_root.metadata_usage":      "Btrfs root metadata usage",
 	"go_native.btrfs_root.system_usage":        "Btrfs root system usage",

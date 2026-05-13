@@ -1597,6 +1597,7 @@ func getCollectorManagerConfig() *CollectorManagerConfig {
 			"go_native.btrfs_root.allocated_used",
 			"go_native.btrfs_root.unallocated",
 			"go_native.btrfs_root.alloc_usage",
+			"go_native.btrfs_root.balance_reclaimable",
 			"go_native.btrfs_root.data_usage",
 			"go_native.btrfs_root.metadata_usage",
 			"go_native.btrfs_root.system_usage",
