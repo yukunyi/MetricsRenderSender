@@ -1560,7 +1560,6 @@ func getCollectorManagerConfig() *CollectorManagerConfig {
 		"go_native.memory.used",
 		"go_native.memory.total",
 		"go_native.memory.usage_text",
-		"go_native.memory.usage_progress",
 		"go_native.memory.swap_usage",
 		"go_native.system.load_avg",
 		"go_native.system.current_time",
@@ -1606,6 +1605,23 @@ func getCollectorManagerConfig() *CollectorManagerConfig {
 			"go_native.btrfs_root.discardable",
 		)
 	}
+	if isZramAvailable() {
+		names = append(names,
+			"go_native.zram.count",
+			"go_native.zram.size",
+			"go_native.zram.data",
+			"go_native.zram.compressed",
+			"go_native.zram.memory_used",
+			"go_native.zram.memory_peak",
+			"go_native.zram.usage",
+			"go_native.zram.memory_usage",
+			"go_native.zram.compression_ratio",
+			"go_native.zram.allocator_usage",
+			"go_native.zram.pages_compacted",
+			"go_native.zram.huge_pages",
+			"go_native.zram.huge_pages_since",
+		)
+	}
 	items := make([]CollectItemConfig, 0, len(names))
 	for _, name := range names {
 		items = append(items, CollectItemConfig{Name: name, Required: true})
@@ -1627,6 +1643,9 @@ func initializeCollectors(manager *CollectorManager, cfg *MonitorConfig) {
 	registerCollectorWithConfig(manager, cfg, NewGoNativeNetworkCollector(manager.requiredItemsSnapshot), true)
 	if btrfsRoot := NewGoNativeBtrfsRootCollector(); btrfsRoot != nil {
 		registerCollectorWithConfig(manager, cfg, btrfsRoot, true)
+	}
+	if zram := NewGoNativeZramCollector(); zram != nil {
+		registerCollectorWithConfig(manager, cfg, zram, true)
 	}
 	if cc := NewCoolerControlCollector(cfg); cc != nil {
 		registerCollectorWithConfig(manager, cfg, cc, true)

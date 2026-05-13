@@ -69,6 +69,7 @@ const DEFAULT_COLLECTOR_ENABLED = {
   "go_native.disk": true,
   "go_native.network": true,
   "go_native.btrfs_root": true,
+  "go_native.zram": true,
   "custom.all": true,
   coolercontrol: false,
   librehardwaremonitor: false,
@@ -310,6 +311,9 @@ function normalizeConfig(cfg, styleKeysRaw = [], itemTypesRaw = []) {
   const collectorEnabled = { ...DEFAULT_COLLECTOR_ENABLED };
   if (!state.meta?.collectors?.includes("go_native.btrfs_root")) {
     delete collectorEnabled["go_native.btrfs_root"];
+  }
+  if (!state.meta?.collectors?.includes("go_native.zram")) {
+    delete collectorEnabled["go_native.zram"];
   }
   return normalizeConfigModel(cfg, {
     styleKeysRaw,

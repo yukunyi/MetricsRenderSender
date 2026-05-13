@@ -39,6 +39,9 @@ function collectorSupportedOnPlatform(name) {
   if (collector === "go_native.btrfs_root") {
     return (props.meta.collectors || []).includes("go_native.btrfs_root");
   }
+  if (collector === "go_native.zram") {
+    return (props.meta.collectors || []).includes("go_native.zram");
+  }
   return true;
 }
 
