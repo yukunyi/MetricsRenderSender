@@ -107,13 +107,13 @@ jobs:
       - name: Set up MSYS2 build environment
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
           install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-go
-            mingw-w64-x86_64-libusb
-            mingw-w64-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-go
+            mingw-w64-ucrt-x86_64-libusb
+            mingw-w64-ucrt-x86_64-pkgconf
             zip
 
       - name: Resolve release version
@@ -143,7 +143,7 @@ jobs:
           WINDOWS_CXX: g++
           WINDOWS_PKG_CONFIG: pkg-config
           WINDOWS_OBJDUMP: objdump
-          MINGW_ROOT: /mingw64
+          MINGW_ROOT: /ucrt64
         run: ./package.sh
 
       - name: Upload Windows artifacts
