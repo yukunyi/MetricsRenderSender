@@ -255,7 +255,7 @@ function normalizeSelection() {
 }
 
 function pushUndoSnapshot(operation = "") {
-  if (!state.config || state.saving) return;
+  if (!state.config) return;
   const encoded = serializeConfig(state.config);
   if (!encoded) return;
   const top = undoStack.value.length > 0 ? undoStack.value[undoStack.value.length - 1].encoded : "";
@@ -863,7 +863,10 @@ async function saveConfig() {
     });
     if (Array.isArray(res?.items)) state.profiles = res.items;
     if (res?.active) state.meta = { ...(state.meta || {}), active_profile: res.active };
-    markCommittedFromCurrent();
+    committedConfig.value = deepClone(payload.config);
+    committedConfigJson.value = serializeConfig(committedConfig.value);
+    state.dirty = serializeConfig(state.config) !== committedConfigJson.value;
+    if (!state.dirty) clearUndoStack();
     await syncPreview();
     setError("");
   } catch (err) {

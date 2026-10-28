@@ -42,6 +42,9 @@ type GoNativeDiskCollector struct {
 	requiredProvider func() []string
 	slots            map[int]*goNativeDiskSlot
 	runtimeMu        runtimeDiskMetricsStore
+	snapshotProvider func() []*DiskInfo
+	readCounters     func([]string) map[string]diskRateSnapshot
+	readTemperatures func([]string) map[string]diskTemperatureSnapshot
 }
 
 type runtimeDiskMetricsStore struct {
@@ -100,6 +103,8 @@ func NewGoNativeDiskCollector(requiredProvider func() []string) *GoNativeDiskCol
 		BaseCollector:    NewBaseCollector("go_native.disk"),
 		requiredProvider: requiredProvider,
 		slots:            make(map[int]*goNativeDiskSlot),
+		readCounters:     getDiskCounterSamples,
+		readTemperatures: getDiskTemperatureSnapshots,
 		runtimeMu: runtimeDiskMetricsStore{
 			states: make(map[string]*runtimeDiskMetricsState),
 		},
@@ -183,6 +188,9 @@ func (c *GoNativeDiskCollector) ensureSlotsForCount(detected int) {
 }
 
 func (c *GoNativeDiskCollector) snapshotDisks() []*DiskInfo {
+	if c.snapshotProvider != nil {
+		return c.snapshotProvider()
+	}
 	initializeCache()
 	updateDiskInfo()
 	return getCachedDiskInfo()
@@ -290,6 +298,22 @@ func diskTemperatureItemsEnabled(slots map[int]*goNativeDiskSlot) bool {
 	return false
 }
 
+func diskSlotRateItemsEnabled(slot *goNativeDiskSlot) bool {
+	return slot != nil && (slot.readItem.IsEnabled() || slot.writeItem.IsEnabled() ||
+		slot.readIOPSItem.IsEnabled() || slot.writeIOPSItem.IsEnabled() ||
+		slot.readLatencyItem.IsEnabled() || slot.writeLatencyItem.IsEnabled() ||
+		slot.busyItem.IsEnabled())
+}
+
+func diskRateItemsEnabled(slots map[int]*goNativeDiskSlot) bool {
+	for _, slot := range slots {
+		if diskSlotRateItemsEnabled(slot) {
+			return true
+		}
+	}
+	return false
+}
+
 func setDiskDynamicMetrics(slot *goNativeDiskSlot, metrics *diskComputedMetrics) {
 	if slot == nil || metrics == nil {
 		updateDiskRateItems(slot, nil)
@@ -356,7 +380,8 @@ func computeDiskMetrics(current diskRateSnapshot, previous diskRateSnapshot) (*d
 }
 
 func (c *GoNativeDiskCollector) GetAllItems() map[string]*CollectItem {
-	disks := c.snapshotDisks()
+	disks := cloneDiskInfoList(c.snapshotDisks())
+	populateDiskDynamicMetrics(disks)
 	c.ensureSlotsForCount(len(disks))
 	for index, slot := range c.slots {
 		var disk *DiskInfo
@@ -395,10 +420,13 @@ func (c *GoNativeDiskCollector) UpdateItems() error {
 		}
 		names = append(names, disk.Name)
 	}
-	samples := getDiskCounterSamples(names)
+	samples := map[string]diskRateSnapshot{}
+	if diskRateItemsEnabled(c.slots) {
+		samples = c.readCounters(names)
+	}
 	temperatureSnapshots := map[string]diskTemperatureSnapshot{}
 	if diskTemperatureItemsEnabled(c.slots) {
-		temperatureSnapshots = getDiskTemperatureSnapshots(names)
+		temperatureSnapshots = c.readTemperatures(names)
 	}
 	for index, slot := range c.slots {
 		if slot == nil {
@@ -412,10 +440,7 @@ func (c *GoNativeDiskCollector) UpdateItems() error {
 			slot.usedItem.IsEnabled() || slot.availableItem.IsEnabled() || slot.usageItem.IsEnabled() {
 			updateDiskStaticItems(slot, disk)
 		}
-		if slot.readItem.IsEnabled() || slot.writeItem.IsEnabled() ||
-			slot.readIOPSItem.IsEnabled() || slot.writeIOPSItem.IsEnabled() ||
-			slot.readLatencyItem.IsEnabled() || slot.writeLatencyItem.IsEnabled() ||
-			slot.busyItem.IsEnabled() {
+		if diskSlotRateItemsEnabled(slot) {
 			if disk == nil {
 				updateDiskRateItems(slot, nil)
 			} else {

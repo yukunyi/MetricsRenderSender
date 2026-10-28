@@ -41,6 +41,8 @@ const (
 type TCPPushOutputHandler struct {
 	cfg      OutputConfig
 	typeName string
+	ctx      context.Context
+	cancel   context.CancelFunc
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
@@ -124,7 +126,10 @@ type tcpPushAvailabilityResponse struct {
 }
 
 func NewTCPPushOutputHandler(cfg OutputConfig, typeName string) *TCPPushOutputHandler {
+	ctx, cancel := context.WithCancel(context.Background())
 	handler := &TCPPushOutputHandler{
+		ctx:      ctx,
+		cancel:   cancel,
 		cfg:      cfg,
 		typeName: typeName,
 		stopCh:   make(chan struct{}),
@@ -150,6 +155,12 @@ func (h *TCPPushOutputHandler) OutputFrame(frame *OutputFrame) error {
 func (h *TCPPushOutputHandler) Close() error {
 	h.stopOnce.Do(func() {
 		close(h.stopCh)
+		h.cancel()
+		h.connMu.Lock()
+		if h.conn != nil {
+			_ = h.conn.Close()
+		}
+		h.connMu.Unlock()
 		h.loopWg.Wait()
 		h.closeConnWithReason("handler closed")
 	})
@@ -535,6 +546,9 @@ func (h *TCPPushOutputHandler) ensureConn() (net.Conn, *bufio.Reader, error) {
 	h.connMu.Lock()
 	defer h.connMu.Unlock()
 
+	if err := h.ctx.Err(); err != nil {
+		return nil, nil, err
+	}
 	if strings.TrimSpace(h.cfg.UploadToken) == "" {
 		return nil, nil, fmt.Errorf("tcp key is required")
 	}
@@ -553,7 +567,7 @@ func (h *TCPPushOutputHandler) ensureConn() (net.Conn, *bufio.Reader, error) {
 		Timeout:   time.Duration(h.cfg.TimeoutMS) * time.Millisecond,
 		KeepAlive: 30 * time.Second,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(h.cfg.TimeoutMS)*time.Millisecond)
+	ctx, cancel := context.WithTimeout(h.ctx, time.Duration(h.cfg.TimeoutMS)*time.Millisecond)
 	defer cancel()
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {

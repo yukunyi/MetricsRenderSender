@@ -13,7 +13,7 @@ import (
 func parseColor(hexColor string) color.Color {
 	raw := strings.TrimSpace(hexColor)
 	if raw == "" {
-		return color.RGBA{255, 255, 255, 255}
+		return color.NRGBA{255, 255, 255, 255}
 	}
 
 	if strings.HasPrefix(strings.ToLower(raw), "rgba(") && strings.HasSuffix(raw, ")") {
@@ -31,7 +31,7 @@ func parseColor(hexColor string) color.Color {
 				if a > 1 {
 					a = 1
 				}
-				return color.RGBA{
+				return color.NRGBA{
 					R: uint8(clampFloat64(r, 0, 255)),
 					G: uint8(clampFloat64(g, 0, 255)),
 					B: uint8(clampFloat64(b, 0, 255)),
@@ -53,25 +53,25 @@ func parseColor(hexColor string) color.Color {
 	}
 
 	if len(raw) != 6 && len(raw) != 8 {
-		return color.RGBA{255, 255, 255, 255}
+		return color.NRGBA{255, 255, 255, 255}
 	}
 
 	r, errR := strconv.ParseUint(raw[0:2], 16, 8)
 	g, errG := strconv.ParseUint(raw[2:4], 16, 8)
 	b, errB := strconv.ParseUint(raw[4:6], 16, 8)
 	if errR != nil || errG != nil || errB != nil {
-		return color.RGBA{255, 255, 255, 255}
+		return color.NRGBA{255, 255, 255, 255}
 	}
 	a := uint8(255)
 	if len(raw) == 8 {
 		alpha, errA := strconv.ParseUint(raw[6:8], 16, 8)
 		if errA != nil {
-			return color.RGBA{255, 255, 255, 255}
+			return color.NRGBA{255, 255, 255, 255}
 		}
 		a = uint8(alpha)
 	}
 
-	return color.RGBA{uint8(r), uint8(g), uint8(b), a}
+	return color.NRGBA{uint8(r), uint8(g), uint8(b), a}
 }
 
 func clampFloat64(value, minValue, maxValue float64) float64 {

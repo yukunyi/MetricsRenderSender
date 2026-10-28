@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 type zramSource struct {
 	sysfsPaths []string
@@ -28,7 +31,8 @@ type zramSnapshot struct {
 
 type GoNativeZramCollector struct {
 	*BaseCollector
-	source zramSource
+	itemsOnce sync.Once
+	source    zramSource
 }
 
 func NewGoNativeZramCollector() *GoNativeZramCollector {
@@ -45,19 +49,21 @@ func NewGoNativeZramCollector() *GoNativeZramCollector {
 }
 
 func (c *GoNativeZramCollector) ensureItems() {
-	c.setItem("go_native.zram.count", NewCollectItem("go_native.zram.count", "Zram device count", "", 0, 0, 0))
-	c.setItem("go_native.zram.size", NewCollectItem("go_native.zram.size", "Zram size", "GB", 0, 0, 1))
-	c.setItem("go_native.zram.data", NewCollectItem("go_native.zram.data", "Zram data", "GB", 0, 0, 2))
-	c.setItem("go_native.zram.compressed", NewCollectItem("go_native.zram.compressed", "Zram compressed data", "GB", 0, 0, 2))
-	c.setItem("go_native.zram.memory_used", NewCollectItem("go_native.zram.memory_used", "Zram memory used", "GB", 0, 0, 2))
-	c.setItem("go_native.zram.memory_peak", NewCollectItem("go_native.zram.memory_peak", "Zram memory peak", "GB", 0, 0, 2))
-	c.setItem("go_native.zram.usage", NewCollectItem("go_native.zram.usage", "Zram usage", "%", 0, 100, 1))
-	c.setItem("go_native.zram.memory_usage", NewCollectItem("go_native.zram.memory_usage", "Zram memory usage", "%", 0, 0, 1))
-	c.setItem("go_native.zram.compression_ratio", NewCollectItem("go_native.zram.compression_ratio", "Zram compression ratio", "", 0, 0, 2))
-	c.setItem("go_native.zram.allocator_usage", NewCollectItem("go_native.zram.allocator_usage", "Zram allocator usage", "%", 0, 100, 1))
-	c.setItem("go_native.zram.pages_compacted", NewCollectItem("go_native.zram.pages_compacted", "Zram pages compacted", "", 0, 0, 0))
-	c.setItem("go_native.zram.huge_pages", NewCollectItem("go_native.zram.huge_pages", "Zram huge pages", "", 0, 0, 0))
-	c.setItem("go_native.zram.huge_pages_since", NewCollectItem("go_native.zram.huge_pages_since", "Zram huge pages since setup", "", 0, 0, 0))
+	c.itemsOnce.Do(func() {
+		c.setItem("go_native.zram.count", NewCollectItem("go_native.zram.count", "Zram device count", "", 0, 0, 0))
+		c.setItem("go_native.zram.size", NewCollectItem("go_native.zram.size", "Zram size", "GB", 0, 0, 1))
+		c.setItem("go_native.zram.data", NewCollectItem("go_native.zram.data", "Zram data", "GB", 0, 0, 2))
+		c.setItem("go_native.zram.compressed", NewCollectItem("go_native.zram.compressed", "Zram compressed data", "GB", 0, 0, 2))
+		c.setItem("go_native.zram.memory_used", NewCollectItem("go_native.zram.memory_used", "Zram memory used", "GB", 0, 0, 2))
+		c.setItem("go_native.zram.memory_peak", NewCollectItem("go_native.zram.memory_peak", "Zram memory peak", "GB", 0, 0, 2))
+		c.setItem("go_native.zram.usage", NewCollectItem("go_native.zram.usage", "Zram usage", "%", 0, 100, 1))
+		c.setItem("go_native.zram.memory_usage", NewCollectItem("go_native.zram.memory_usage", "Zram memory usage", "%", 0, 0, 1))
+		c.setItem("go_native.zram.compression_ratio", NewCollectItem("go_native.zram.compression_ratio", "Zram compression ratio", "", 0, 0, 2))
+		c.setItem("go_native.zram.allocator_usage", NewCollectItem("go_native.zram.allocator_usage", "Zram allocator usage", "%", 0, 100, 1))
+		c.setItem("go_native.zram.pages_compacted", NewCollectItem("go_native.zram.pages_compacted", "Zram pages compacted", "", 0, 0, 0))
+		c.setItem("go_native.zram.huge_pages", NewCollectItem("go_native.zram.huge_pages", "Zram huge pages", "", 0, 0, 0))
+		c.setItem("go_native.zram.huge_pages_since", NewCollectItem("go_native.zram.huge_pages_since", "Zram huge pages since setup", "", 0, 0, 0))
+	})
 }
 
 func (c *GoNativeZramCollector) GetAllItems() map[string]*CollectItem {

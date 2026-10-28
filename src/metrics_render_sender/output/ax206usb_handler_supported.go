@@ -3,6 +3,7 @@
 package output
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -27,6 +28,8 @@ func normalizeAX206ReconnectInterval(interval time.Duration) time.Duration {
 }
 
 type AX206USBOutputHandler struct {
+	ctx      context.Context
+	cancel   context.CancelFunc
 	deviceMu sync.RWMutex
 	device   *AX206USB
 	rgb565   *ImageRGB565
@@ -49,7 +52,10 @@ type AX206USBOutputHandler struct {
 }
 
 func NewAX206USBOutputHandler(cfg OutputConfig) (*AX206USBOutputHandler, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 	handler := &AX206USBOutputHandler{
+		ctx:               ctx,
+		cancel:            cancel,
 		stopCh:            make(chan struct{}),
 		reconnectCh:       make(chan struct{}, 1),
 		frameCh:           make(chan *OutputFrame, 1),
@@ -76,6 +82,7 @@ func (h *AX206USBOutputHandler) OutputFrame(frame *OutputFrame) error {
 func (h *AX206USBOutputHandler) Close() error {
 	h.stopOnce.Do(func() {
 		close(h.stopCh)
+		h.cancel()
 		h.loopWg.Wait()
 		h.detachDevice("Disconnected", nil)
 	})
@@ -184,11 +191,11 @@ func (h *AX206USBOutputHandler) getDevice() *AX206USB {
 }
 
 func (h *AX206USBOutputHandler) tryConnect() {
-	if h.getDevice() != nil {
+	if h.ctx.Err() != nil || h.getDevice() != nil {
 		return
 	}
 
-	device, err := NewAX206USB()
+	device, err := newAX206USBWithContext(h.ctx)
 	if err != nil {
 		h.logConnectFailure(err)
 		return

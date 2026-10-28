@@ -126,13 +126,7 @@ type webSnapshotValueCache struct {
 }
 
 func NewWebAPI(cfg *MonitorConfig) (*WebAPI, error) {
-	fontCache, err := loadFontCache()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize web runtime fonts: %w", err)
-	}
-
 	runtime := &WebAPI{
-		fontCache:     fontCache,
 		previewOutput: NewMemImgOutputHandler(),
 		outputChan:    make(chan webOutputFrame, 1),
 		valueCache:    make(map[*CollectItem]webSnapshotValueCache),
@@ -277,11 +271,16 @@ func (r *WebAPI) applyConfigInternal(cfg *MonitorConfig, forceMemImg bool) error
 	registry.SetPreviewMode(forceMemImg)
 	var historyStore *renderHistoryStore
 	r.mu.RLock()
+	fontCache := r.fontCache
 	if r.renderManager != nil {
 		historyStore = r.renderManager.history
 	}
 	r.mu.RUnlock()
-	renderManager := NewRenderManagerWithHistory(r.fontCache, registry, historyStore)
+	fontCache, err := loadFontCacheForConfig(fontCache, configCopy)
+	if err != nil {
+		return fmt.Errorf("failed to initialize web runtime fonts: %w", err)
+	}
+	renderManager := NewRenderManagerWithHistory(fontCache, registry, historyStore)
 
 	outputSummary := resolveOutputConfigSummaryFromList(configCopy.Outputs, false)
 	outputConfigs := outputSummary.Configs
@@ -301,6 +300,7 @@ func (r *WebAPI) applyConfigInternal(cfg *MonitorConfig, forceMemImg bool) error
 	r.mu.Lock()
 	oldOutputManager := r.outputManager
 	r.config = configCopy
+	r.fontCache = fontCache
 	r.required = required
 	r.registry = registry
 	r.renderManager = renderManager

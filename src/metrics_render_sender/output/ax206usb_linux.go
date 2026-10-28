@@ -3,6 +3,7 @@
 package output
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/color"
@@ -124,16 +125,17 @@ func (p *ImageRGB565) Bytes() []byte {
 }
 
 type AX206USB struct {
-	Width  int
-	Height int
-	Debug  bool
+	transferCtx context.Context
+	Width       int
+	Height      int
+	Debug       bool
 
 	ctx       *gousb.Context
 	device    *gousb.Device
 	config    *gousb.Config
 	intf      *gousb.Interface
-	outEndp   *gousb.OutEndpoint
-	inEndp    *gousb.InEndpoint
+	outEndp   usbBulkWriter
+	inEndp    usbBulkReader
 	hasCtx    bool
 	hasDevice bool
 	hasConfig bool
@@ -141,7 +143,11 @@ type AX206USB struct {
 }
 
 func NewAX206USB() (*AX206USB, error) {
-	ax206 := new(AX206USB)
+	return newAX206USBWithContext(context.Background())
+}
+
+func newAX206USBWithContext(ctxParent context.Context) (*AX206USB, error) {
+	ax206 := &AX206USB{transferCtx: ctxParent}
 
 	ctx := gousb.NewContext()
 	if ctx == nil {
@@ -283,35 +289,6 @@ func (ax206 *AX206USB) Blit(img *ImageRGB565) error {
 	return ax206.scsiWrite(cmd, img.Bytes())
 }
 
-func writeBulkAll(endp *gousb.OutEndpoint, data []byte) error {
-	for len(data) > 0 {
-		n, err := endp.Write(data)
-		if err != nil {
-			return err
-		}
-		if n <= 0 {
-			return fmt.Errorf("short write: wrote 0 of %d bytes", len(data))
-		}
-		data = data[n:]
-	}
-	return nil
-}
-
-func readBulkFull(endp *gousb.InEndpoint, data []byte) (int, error) {
-	total := 0
-	for total < len(data) {
-		n, err := endp.Read(data[total:])
-		if err != nil {
-			return total, err
-		}
-		if n <= 0 {
-			return total, fmt.Errorf("short read: read %d of %d bytes", total, len(data))
-		}
-		total += n
-	}
-	return total, nil
-}
-
 func (ax206 *AX206USB) Close() {
 	if ax206.hasIntf {
 		ax206.intf.Close()
@@ -362,13 +339,13 @@ func (ax206 *AX206USB) scsiCmdPrepare(cmd []byte, blockLen int, out bool) []byte
 	return buf
 }
 
-func (ax206 *AX206USB) scsiGetAck() error {
+func (ax206 *AX206USB) scsiGetAck(ctx context.Context) error {
 	buf := make([]byte, usbMassStorageCSWSize)
 	// Get ACK
 	if ax206.Debug {
 		logDebug("[ACK] Read ACK from device")
 	}
-	n, err := readBulkFull(ax206.inEndp, buf)
+	n, err := readBulkFull(ctx, ax206.inEndp, buf)
 	if err != nil {
 		return fmt.Errorf("ACK read failed: %v", err)
 	}
@@ -386,11 +363,13 @@ func (ax206 *AX206USB) scsiGetAck() error {
 }
 
 func (ax206 *AX206USB) scsiWrite(cmd []byte, data []byte) error {
+	ctx, cancel := ax206.commandContext()
+	defer cancel()
 	// Write command to device
 	if ax206.Debug {
 		logDebug("[WRITE] Write command to device")
 	}
-	if err := writeBulkAll(ax206.outEndp, ax206.scsiCmdPrepare(cmd, len(data), true)); err != nil {
+	if err := writeBulkAll(ctx, ax206.outEndp, ax206.scsiCmdPrepare(cmd, len(data), true)); err != nil {
 		return fmt.Errorf("command write failed: %v", err)
 	}
 
@@ -399,20 +378,22 @@ func (ax206 *AX206USB) scsiWrite(cmd []byte, data []byte) error {
 		if ax206.Debug {
 			logDebug("[WRITE] Write data to device")
 		}
-		if err := writeBulkAll(ax206.outEndp, data); err != nil {
+		if err := writeBulkAll(ctx, ax206.outEndp, data); err != nil {
 			return fmt.Errorf("data write failed: %v", err)
 		}
 	}
 
-	return ax206.scsiGetAck()
+	return ax206.scsiGetAck(ctx)
 }
 
 func (ax206 *AX206USB) scsiRead(cmd []byte, blockLen int) ([]byte, error) {
+	ctx, cancel := ax206.commandContext()
+	defer cancel()
 	// Write command to device
 	if ax206.Debug {
 		logDebug("[READ] Write command to device")
 	}
-	if err := writeBulkAll(ax206.outEndp, ax206.scsiCmdPrepare(cmd, blockLen, false)); err != nil {
+	if err := writeBulkAll(ctx, ax206.outEndp, ax206.scsiCmdPrepare(cmd, blockLen, false)); err != nil {
 		return nil, fmt.Errorf("command write failed: %v", err)
 	}
 
@@ -421,7 +402,7 @@ func (ax206 *AX206USB) scsiRead(cmd []byte, blockLen int) ([]byte, error) {
 	}
 	// Read data from device
 	data := make([]byte, blockLen)
-	n, err := readBulkFull(ax206.inEndp, data)
+	n, err := readBulkFull(ctx, ax206.inEndp, data)
 	if err != nil {
 		return nil, fmt.Errorf("data read failed: %v", err)
 	}
@@ -429,7 +410,7 @@ func (ax206 *AX206USB) scsiRead(cmd []byte, blockLen int) ([]byte, error) {
 		logDebug("[read] data %v", data[:n])
 	}
 
-	err = ax206.scsiGetAck()
+	err = ax206.scsiGetAck(ctx)
 	if err != nil {
 		return data[:n], err
 	}

@@ -65,6 +65,7 @@ func (c *LineChartRenderer) Render(dc *gg.Context, item *ItemConfig, frame *Rend
 			x = chartX + float64(idx)*chartWidth/float64(len(history)-1)
 		}
 		y := chartY + chartHeight - (histValue-minVal)/(maxVal-minVal)*chartHeight
+		y = clampFloat64(y, chartY, chartY+chartHeight)
 		pointsOnChart = append(pointsOnChart, chartPoint{x: x, y: y, v: histValue})
 	}
 	if len(pointsOnChart) < 2 {

@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 type btrfsRootSnapshot struct {
 	DeviceSizeGB       float64
@@ -21,7 +24,8 @@ type btrfsRootSnapshot struct {
 
 type GoNativeBtrfsRootCollector struct {
 	*BaseCollector
-	source btrfsRootSource
+	itemsOnce sync.Once
+	source    btrfsRootSource
 }
 
 func NewGoNativeBtrfsRootCollector() *GoNativeBtrfsRootCollector {
@@ -38,18 +42,20 @@ func NewGoNativeBtrfsRootCollector() *GoNativeBtrfsRootCollector {
 }
 
 func (c *GoNativeBtrfsRootCollector) ensureItems() {
-	c.setItem("go_native.btrfs_root.device_size", NewCollectItem("go_native.btrfs_root.device_size", "Btrfs root device size", "GB", 0, 0, 1))
-	c.setItem("go_native.btrfs_root.allocated", NewCollectItem("go_native.btrfs_root.allocated", "Btrfs root allocated", "GB", 0, 0, 1))
-	c.setItem("go_native.btrfs_root.allocated_used", NewCollectItem("go_native.btrfs_root.allocated_used", "Btrfs root allocated used", "GB", 0, 0, 1))
-	c.setItem("go_native.btrfs_root.unallocated", NewCollectItem("go_native.btrfs_root.unallocated", "Btrfs root unallocated", "GB", 0, 0, 1))
-	c.setItem("go_native.btrfs_root.alloc_usage", NewCollectItem("go_native.btrfs_root.alloc_usage", "Btrfs root allocation usage", "%", 0, 100, 1))
-	c.setItem("go_native.btrfs_root.balance_reclaimable", NewCollectItem("go_native.btrfs_root.balance_reclaimable", "Btrfs root balance reclaimable", "%", 0, 100, 1))
-	c.setItem("go_native.btrfs_root.data_usage", NewCollectItem("go_native.btrfs_root.data_usage", "Btrfs root data usage", "%", 0, 100, 1))
-	c.setItem("go_native.btrfs_root.metadata_usage", NewCollectItem("go_native.btrfs_root.metadata_usage", "Btrfs root metadata usage", "%", 0, 100, 1))
-	c.setItem("go_native.btrfs_root.system_usage", NewCollectItem("go_native.btrfs_root.system_usage", "Btrfs root system usage", "%", 0, 100, 1))
-	c.setItem("go_native.btrfs_root.pinned", NewCollectItem("go_native.btrfs_root.pinned", "Btrfs root pinned", "GB", 0, 0, 2))
-	c.setItem("go_native.btrfs_root.reclaim", NewCollectItem("go_native.btrfs_root.reclaim", "Btrfs root reclaim", "GB", 0, 0, 2))
-	c.setItem("go_native.btrfs_root.discardable", NewCollectItem("go_native.btrfs_root.discardable", "Btrfs root discardable", "GB", 0, 0, 2))
+	c.itemsOnce.Do(func() {
+		c.setItem("go_native.btrfs_root.device_size", NewCollectItem("go_native.btrfs_root.device_size", "Btrfs root device size", "GB", 0, 0, 1))
+		c.setItem("go_native.btrfs_root.allocated", NewCollectItem("go_native.btrfs_root.allocated", "Btrfs root allocated", "GB", 0, 0, 1))
+		c.setItem("go_native.btrfs_root.allocated_used", NewCollectItem("go_native.btrfs_root.allocated_used", "Btrfs root allocated used", "GB", 0, 0, 1))
+		c.setItem("go_native.btrfs_root.unallocated", NewCollectItem("go_native.btrfs_root.unallocated", "Btrfs root unallocated", "GB", 0, 0, 1))
+		c.setItem("go_native.btrfs_root.alloc_usage", NewCollectItem("go_native.btrfs_root.alloc_usage", "Btrfs root allocation usage", "%", 0, 100, 1))
+		c.setItem("go_native.btrfs_root.balance_reclaimable", NewCollectItem("go_native.btrfs_root.balance_reclaimable", "Btrfs root balance reclaimable", "%", 0, 100, 1))
+		c.setItem("go_native.btrfs_root.data_usage", NewCollectItem("go_native.btrfs_root.data_usage", "Btrfs root data usage", "%", 0, 100, 1))
+		c.setItem("go_native.btrfs_root.metadata_usage", NewCollectItem("go_native.btrfs_root.metadata_usage", "Btrfs root metadata usage", "%", 0, 100, 1))
+		c.setItem("go_native.btrfs_root.system_usage", NewCollectItem("go_native.btrfs_root.system_usage", "Btrfs root system usage", "%", 0, 100, 1))
+		c.setItem("go_native.btrfs_root.pinned", NewCollectItem("go_native.btrfs_root.pinned", "Btrfs root pinned", "GB", 0, 0, 2))
+		c.setItem("go_native.btrfs_root.reclaim", NewCollectItem("go_native.btrfs_root.reclaim", "Btrfs root reclaim", "GB", 0, 0, 2))
+		c.setItem("go_native.btrfs_root.discardable", NewCollectItem("go_native.btrfs_root.discardable", "Btrfs root discardable", "GB", 0, 0, 2))
+	})
 }
 
 func (c *GoNativeBtrfsRootCollector) GetAllItems() map[string]*CollectItem {

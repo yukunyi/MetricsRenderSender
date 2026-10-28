@@ -42,11 +42,18 @@ var fontAliasMap = map[string][]string{
 }
 
 func loadFontCache() (*FontCache, error) {
+	return loadFontCacheForConfig(nil, GetGlobalCollectorConfig())
+}
+
+func loadFontCacheForConfig(current *FontCache, cfg *MonitorConfig) (*FontCache, error) {
+	loadedFont := findSystemFontForConfig(cfg)
+	if current != nil && current.fontPath == loadedFont {
+		return current, nil
+	}
 	cache := &FontCache{
 		fontMap: make(map[int]font.Face),
 	}
 
-	loadedFont := findSystemFont()
 	if loadedFont == "" {
 		logWarnModule("font", "No suitable font found, using system default")
 	} else {
@@ -68,7 +75,11 @@ func loadFontCache() (*FontCache, error) {
 }
 
 func findSystemFont() string {
-	if cfg := GetGlobalCollectorConfig(); cfg != nil {
+	return findSystemFontForConfig(GetGlobalCollectorConfig())
+}
+
+func findSystemFontForConfig(cfg *MonitorConfig) string {
+	if cfg != nil {
 		preferred := make([]string, 0, len(cfg.FontFamilies)+1)
 		if strings.TrimSpace(cfg.GetDefaultFontName()) != "" {
 			preferred = append(preferred, cfg.GetDefaultFontName())

@@ -2,10 +2,30 @@ package main
 
 import (
 	"math"
+	"runtime"
 	"testing"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 )
+
+func TestCPUUsageGuestTime(t *testing.T) {
+	previous := cpu.TimesStat{User: 100, Nice: 20, Idle: 200, Guest: 50, GuestNice: 10}
+	current := cpu.TimesStat{User: 140, Nice: 30, Idle: 250, Guest: 90, GuestNice: 20}
+	totalDelta := cpuTotalTime(current) - cpuTotalTime(previous)
+	wantTotal := 150.0
+	wantUsage := 100.0 * 100.0 / 150.0
+	if runtime.GOOS == "linux" {
+		wantTotal = 100
+		wantUsage = 50
+	}
+	if !almostEqualFloat64(totalDelta, wantTotal) {
+		t.Fatalf("expected total delta %v, got %v", wantTotal, totalDelta)
+	}
+	got := computeCPUUsageBreakdown(current, totalDelta, previous.Idle, previous.User, previous.System, previous.Iowait, previous.Irq, previous.Softirq)
+	if !almostEqualFloat64(got.Usage, wantUsage) {
+		t.Fatalf("expected usage %v, got %v", wantUsage, got.Usage)
+	}
+}
 
 func almostEqualFloat64(a, b float64) bool {
 	return math.Abs(a-b) < 0.001

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=MetricsRenderSender
+Comment=Collect metrics and send rendered dashboards to displays
+Comment[zh_CN]=采集系统指标并将仪表盘画面发送到显示设备
+Exec=metrics_render_sender
+Icon=metrics_render_sender
+Terminal=false
+Categories=System;Monitor;
+Keywords=metrics;monitor;dashboard;display;
+StartupNotify=false

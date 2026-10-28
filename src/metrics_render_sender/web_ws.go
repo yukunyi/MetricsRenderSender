@@ -59,6 +59,8 @@ type webSocketClient struct {
 	store  *ConfigStore
 	sendCh chan []byte
 	closed chan struct{}
+	done   chan struct{}
+	loops  sync.WaitGroup
 	once   sync.Once
 }
 
@@ -72,24 +74,56 @@ func serveWebSocket(c echo.Context, store *ConfigStore) error {
 		store:  store,
 		sendCh: make(chan []byte, wsSendBufferSize),
 		closed: make(chan struct{}),
+		done:   make(chan struct{}),
 	}
 
-	store.registerWebSocketClient(client)
-	defer client.close()
+	defer close(client.done)
+	if !store.registerWebSocketClient(client) {
+		client.close()
+		return nil
+	}
+	defer func() {
+		client.close()
+		client.loops.Wait()
+		store.unregisterWebSocketClient(client)
+	}()
+	client.loops.Add(2)
 
 	go client.writeLoop()
 	go client.pushLoop()
 	return client.readLoop()
 }
 
-func (s *ConfigStore) registerWebSocketClient(client *webSocketClient) {
+func (s *ConfigStore) registerWebSocketClient(client *webSocketClient) bool {
 	s.wsMu.Lock()
+	if s.wsClosed {
+		s.wsMu.Unlock()
+		return false
+	}
 	s.wsClients[client] = struct{}{}
 	count := len(s.wsClients)
 	s.wsMu.Unlock()
 
 	if s.runtime != nil {
 		s.runtime.SetRealtimeConnectionCount(count)
+	}
+	return true
+}
+
+func (s *ConfigStore) closeWebSocketClients() {
+	s.wsMu.Lock()
+	s.wsClosed = true
+	clients := make([]*webSocketClient, 0, len(s.wsClients))
+	for client := range s.wsClients {
+		clients = append(clients, client)
+	}
+	s.wsMu.Unlock()
+
+	for _, client := range clients {
+		client.close()
+	}
+	for _, client := range clients {
+		<-client.done
 	}
 }
 
@@ -107,12 +141,12 @@ func (s *ConfigStore) unregisterWebSocketClient(client *webSocketClient) {
 func (c *webSocketClient) close() {
 	c.once.Do(func() {
 		close(c.closed)
-		c.store.unregisterWebSocketClient(c)
 		_ = c.conn.Close()
 	})
 }
 
 func (c *webSocketClient) writeLoop() {
+	defer c.loops.Done()
 	defer c.close()
 	pingTicker := time.NewTicker(wsPingPeriod)
 	defer pingTicker.Stop()
@@ -139,6 +173,7 @@ func (c *webSocketClient) writeLoop() {
 }
 
 func (c *webSocketClient) pushLoop() {
+	defer c.loops.Done()
 	defer c.close()
 	ticker := time.NewTicker(wsPushInterval)
 	defer ticker.Stop()

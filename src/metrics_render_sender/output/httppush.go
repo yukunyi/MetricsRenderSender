@@ -18,6 +18,8 @@ type HTTPPushOutputHandler struct {
 	cfg      OutputConfig
 	typeName string
 	client   *http.Client
+	ctx      context.Context
+	cancel   context.CancelFunc
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
@@ -31,7 +33,10 @@ type HTTPPushOutputHandler struct {
 func NewHTTPPushOutputHandler(cfg OutputConfig, typeName string) *HTTPPushOutputHandler {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
+	ctx, cancel := context.WithCancel(context.Background())
 	handler := &HTTPPushOutputHandler{
+		ctx:      ctx,
+		cancel:   cancel,
 		cfg:      cfg,
 		typeName: typeName,
 		client: &http.Client{
@@ -61,7 +66,9 @@ func (h *HTTPPushOutputHandler) OutputFrame(frame *OutputFrame) error {
 func (h *HTTPPushOutputHandler) Close() error {
 	h.stopOnce.Do(func() {
 		close(h.stopCh)
+		h.cancel()
 		h.loopWg.Wait()
+		h.client.CloseIdleConnections()
 	})
 	return nil
 }
@@ -101,7 +108,7 @@ func (h *HTTPPushOutputHandler) doRequest(body []byte, contentType string) error
 	if strings.TrimSpace(h.cfg.URL) == "" {
 		return fmt.Errorf("url is empty")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), h.client.Timeout)
+	ctx, cancel := context.WithTimeout(h.ctx, h.client.Timeout)
 	defer cancel()
 
 	payload, requestContentType, err := h.buildRequestPayload(body, contentType)

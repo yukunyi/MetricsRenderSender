@@ -111,8 +111,19 @@ Linux:
 ```bash
 tar -xzf metrics_render_sender-linux-amd64-vX.Y.Z.tar.gz
 cd metrics_render_sender-linux-amd64-vX.Y.Z
-./metrics_render_sender
+./install.sh
 ```
+
+Run the installer as your normal desktop user, without `sudo`. Then search for
+**MetricsRenderSender** in your application menu to launch it, including after
+exiting the tray. The installer copies the executable to
+`$HOME/.local/lib/metrics_render_sender/metrics_render_sender` and registers its
+icon and `.desktop` entry under `${XDG_DATA_HOME:-$HOME/.local/share}`. The
+extracted package can then be removed. Installing a newer package replaces the
+installed executable; restart the application to use it.
+
+For portable use without installing a menu entry, run `./metrics_render_sender`
+from the extracted directory.
 
 Windows:
 
@@ -286,6 +297,9 @@ dist/metrics_render_sender-linux-amd64-v1.0.0.tar.gz
 dist/windows/metrics_render_sender-windows-amd64-v1.0.0/
 dist/windows/metrics_render_sender-windows-amd64-v1.0.0.zip
 ```
+
+The Linux archive includes `install.sh`, `metrics_render_sender.desktop`, and the
+application icon in addition to the executable and README.
 
 ## GitHub Release Automation
 

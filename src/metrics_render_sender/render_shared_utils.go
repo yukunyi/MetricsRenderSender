@@ -674,7 +674,7 @@ func historyAverage(values []float64) float64 {
 }
 
 func applyAlpha(colorText string, alpha float64) string {
-	parsed := color.RGBAModel.Convert(parseColor(colorText)).(color.RGBA)
+	parsed := color.NRGBAModel.Convert(parseColor(colorText)).(color.NRGBA)
 	if alpha < 0 {
 		alpha = 0
 	}

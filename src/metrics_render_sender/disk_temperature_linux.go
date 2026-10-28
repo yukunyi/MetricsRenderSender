@@ -141,7 +141,7 @@ func linuxDiskHwmonDirs(devicePath string) []string {
 		}
 		name := entry.Name()
 		path := filepath.Join(devicePath, name)
-		if strings.HasPrefix(name, "hwmon") && linuxPathIsDir(path) {
+		if name != "hwmon" && strings.HasPrefix(name, "hwmon") && linuxPathIsDir(path) {
 			dirs = append(dirs, path)
 			continue
 		}

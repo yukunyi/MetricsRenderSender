@@ -166,7 +166,7 @@ func (c *GoNativeCPUCollector) sampleCPUUsage() (cpuUsageBreakdown, bool, error)
 		return cpuUsageBreakdown{}, false, err
 	}
 	sample := stats[0]
-	total := sample.User + sample.System + sample.Idle + sample.Nice + sample.Iowait + sample.Irq + sample.Softirq + sample.Steal + sample.Guest + sample.GuestNice
+	total := cpuTotalTime(sample)
 	idle := sample.Idle + sample.Iowait
 
 	if !c.usageReady {
@@ -213,6 +213,15 @@ func (c *GoNativeCPUCollector) sampleCPUUsage() (cpuUsageBreakdown, bool, error)
 	}
 	c.usageLastValue = breakdown
 	return breakdown, true, nil
+}
+
+func cpuTotalTime(sample cpu.TimesStat) float64 {
+	total := sample.User + sample.System + sample.Idle + sample.Nice + sample.Iowait + sample.Irq + sample.Softirq + sample.Steal + sample.Guest + sample.GuestNice
+	if runtime.GOOS == "linux" {
+		// Linux already includes guest time in the user and nice counters.
+		total -= sample.Guest + sample.GuestNice
+	}
+	return total
 }
 
 func clampPercentage(value float64) float64 {

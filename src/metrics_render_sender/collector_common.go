@@ -107,7 +107,6 @@ func updateDiskInfo() {
 	if needScan {
 		newDisks = detectDiskInfoStatic()
 	}
-	populateDiskDynamicMetrics(newDisks)
 	if len(newDisks) > 1 {
 		sort.Slice(newDisks, func(i, j int) bool { return newDisks[i].Name < newDisks[j].Name })
 	}

@@ -35,6 +35,7 @@ type ConfigStore struct {
 	profiles  *ProfileManager
 	wsMu      sync.RWMutex
 	wsClients map[*webSocketClient]struct{}
+	wsClosed  bool
 }
 
 type WebMetaResponse struct {
@@ -303,6 +304,7 @@ func RunWebServer(options WebServerOptions) error {
 	}
 	defer ReleaseSharedWebAPI(runtime)
 	store.runtime = runtime
+	defer store.closeWebSocketClients()
 	claimRunningConfigStore(store)
 	defer releaseRunningConfigStore(store)
 
@@ -627,51 +629,8 @@ func RunWebServer(options WebServerOptions) error {
 		})
 	})
 
-	e.POST("/api/collectors/:name/enable", func(c echo.Context) error {
-		name := strings.TrimSpace(c.Param("name"))
-		if name == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing collector name"})
-		}
-		if !store.setCollectorEnabled(name, true) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "collector not found"})
-		}
-		cfg := store.getConfig()
-		if cfg.CollectorConfig == nil {
-			cfg.CollectorConfig = map[string]CollectorConfig{}
-		}
-		entry := cfg.CollectorConfig[name]
-		entry.Enabled = boolPtr(true)
-		if entry.Options == nil {
-			entry.Options = map[string]interface{}{}
-		}
-		cfg.CollectorConfig[name] = entry
-		store.setConfig(cfg)
-		_ = saveUserConfig(store.path, cfg)
-		return c.JSON(http.StatusOK, map[string]interface{}{"ok": true})
-	})
-
-	e.POST("/api/collectors/:name/disable", func(c echo.Context) error {
-		name := strings.TrimSpace(c.Param("name"))
-		if name == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing collector name"})
-		}
-		if !store.setCollectorEnabled(name, false) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "collector not found"})
-		}
-		cfg := store.getConfig()
-		if cfg.CollectorConfig == nil {
-			cfg.CollectorConfig = map[string]CollectorConfig{}
-		}
-		entry := cfg.CollectorConfig[name]
-		entry.Enabled = boolPtr(false)
-		if entry.Options == nil {
-			entry.Options = map[string]interface{}{}
-		}
-		cfg.CollectorConfig[name] = entry
-		store.setConfig(cfg)
-		_ = saveUserConfig(store.path, cfg)
-		return c.JSON(http.StatusOK, map[string]interface{}{"ok": true})
-	})
+	e.POST("/api/collectors/:name/enable", collectorEnabledHandler(store, true))
+	e.POST("/api/collectors/:name/disable", collectorEnabledHandler(store, false))
 
 	e.GET("/api/preview", func(c echo.Context) error {
 		store.touchRuntime()
@@ -709,6 +668,34 @@ func RunWebServer(options WebServerOptions) error {
 		return err
 	}
 	return nil
+}
+
+func collectorEnabledHandler(store *ConfigStore, enabled bool) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		name := strings.TrimSpace(c.Param("name"))
+		if name == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing collector name"})
+		}
+		if _, exists := store.collectorStates()[name]; !exists {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "collector not found"})
+		}
+		cfg := store.getConfig()
+		if cfg.CollectorConfig == nil {
+			cfg.CollectorConfig = make(map[string]CollectorConfig)
+		}
+		setCollectorEnabled(cfg, name, enabled)
+		if err := saveUserConfig(store.path, cfg); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		if active := store.profiles.ActiveName(); active != "" {
+			if err := store.profiles.SaveProfile(active, cfg); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+		}
+		store.setConfig(cfg)
+		store.setCollectorEnabled(name, enabled)
+		return c.JSON(http.StatusOK, map[string]interface{}{"ok": true})
+	}
 }
 
 func buildWebMetaResponse(store *ConfigStore) WebMetaResponse {

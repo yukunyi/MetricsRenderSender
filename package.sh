@@ -213,11 +213,14 @@ if has_build_target "linux"; then
 
     echo "Copying files to Linux package directory..."
     cp dist/metrics_render_sender-linux-amd64 "$LINUX_PACKAGE/metrics_render_sender"
+    cp packaging/linux/install.sh packaging/linux/metrics_render_sender.desktop "$LINUX_PACKAGE/"
+    cp src/metrics_render_sender/assets/tray.svg "$LINUX_PACKAGE/metrics_render_sender.svg"
     if [ -f README.md ]; then
         cp README.md "$LINUX_PACKAGE/"
     fi
 
     chmod +x "$LINUX_PACKAGE/metrics_render_sender"
+    chmod +x "$LINUX_PACKAGE/install.sh"
 fi
 
 if has_build_target "windows"; then
@@ -290,7 +293,9 @@ if has_build_target "linux"; then
     echo "Linux:"
     echo "1. Extract: tar -xzf dist/$LINUX_PACKAGE.tar.gz"
     echo "2. Enter directory: cd $LINUX_PACKAGE"
-    echo "3. Run in foreground: ./metrics_render_sender"
+    echo "3. Install for the current user: ./install.sh (without sudo)"
+    echo "4. Launch MetricsRenderSender from the application menu"
+    echo "   Or run the portable executable: ./metrics_render_sender"
     echo ""
 fi
 if has_build_target "windows"; then
