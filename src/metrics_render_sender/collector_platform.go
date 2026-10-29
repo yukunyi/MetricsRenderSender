@@ -322,10 +322,8 @@ func getDiskCounterSamples(deviceNames []string) map[string]diskRateSnapshot {
 }
 
 func getTemperatureByKeywords(keywords []string) float64 {
-	temps, err := host.SensorsTemperatures()
-	if err != nil {
-		return 0
-	}
+	// Sensor read warnings can accompany valid readings from other devices.
+	temps, _ := host.SensorsTemperatures()
 	maxTemp := 0.0
 	for _, stat := range temps {
 		key := strings.ToLower(strings.TrimSpace(stat.SensorKey))
